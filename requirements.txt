@@ -1,7 +1,6 @@
 flask
 flask-cors
 opencv-python-headless
-face_recognition
 numpy
 groq
 fpdf2

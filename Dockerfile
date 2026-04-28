@@ -31,5 +31,4 @@ ENV PORT=5000
 EXPOSE 5000
 
 # Start the application using Gunicorn
-# Pointing to the app object in backend/app.py
-CMD ["gunicorn", "--bind", "0.0.0.0:5000", "--chdir", "backend", "app:app"]
+CMD ["sh", "-c", "gunicorn --bind 0.0.0.0:$PORT --chdir backend app:app"]
