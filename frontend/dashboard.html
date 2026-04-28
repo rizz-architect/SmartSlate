@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1">
+  <title>Smart Attendance | Intelligence Hub</title>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;600;700&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body data-page="dashboard">
+  <header class="fyn-header">
+    <div class="fyn-logo">INTELLIGENCE HUB</div>
+    <nav class="fyn-nav">
+      <a href="index.html">Monitor</a>
+      <a href="register.html">Student Entry</a>
+      <a href="dashboard.html" class="active">Hub</a>
+      <a href="profile.html">Profiles</a>
+    </nav>
+  </header>
+
+  <main class="fyn-main">
+    <h1 class="fyn-title" style="font-size: 3rem; margin-bottom: 30px;">Classroom <br>Intelligence.</h1>
+
+    <!-- Analytics Row -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(250px, 1fr)); gap: 20px; margin-bottom: 40px;">
+      <div class="fyn-panel" style="text-align: center;">
+        <div style="color: var(--text-dim); font-size: 0.8rem; font-weight: 700;">TOTAL OCCUPANCY</div>
+        <div style="font-size: 3rem; font-weight: 800; color: var(--accent);" id="stat-occupancy">--</div>
+        <p style="font-size: 0.8rem; opacity: 0.6;">Active students detected</p>
+      </div>
+      <div class="fyn-panel" style="text-align: center;">
+        <div style="color: var(--text-dim); font-size: 0.8rem; font-weight: 700;">AVG. ATTENDANCE</div>
+        <div style="font-size: 3rem; font-weight: 800; color: var(--safe);" id="stat-avg">--%</div>
+        <p style="font-size: 0.8rem; opacity: 0.6;">Classroom average</p>
+      </div>
+      <div class="fyn-panel" style="text-align: center;">
+        <div style="color: var(--text-dim); font-size: 0.8rem; font-weight: 700;">ABSENT ALERT</div>
+        <div style="font-size: 3rem; font-weight: 800; color: var(--error);" id="stat-absent">--</div>
+        <p style="font-size: 0.8rem; opacity: 0.6;">Students missing today</p>
+      </div>
+    </div>
+
+    <!-- Controls -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; flex-wrap: wrap; gap: 20px;">
+      <div style="display: flex; gap: 10px; flex: 1; max-width: 500px;">
+        <input type="text" id="search-name" placeholder="Search student name..." style="flex: 1; padding: 12px 20px; border-radius: 15px; border: 1px solid rgba(0,0,0,0.1); font-size: 0.9rem;">
+        <button class="fyn-btn" onclick="searchFromDashboard()" style="padding: 10px 20px;">Search</button>
+      </div>
+      <div style="display: flex; gap: 10px;">
+        <select id="month-select" style="padding: 12px 20px; border-radius: 15px; border: 1px solid rgba(0,0,0,0.1); background: white; font-weight: 600;"></select>
+        <button class="fyn-btn" onclick="loadReport(document.getElementById('month-select').value)">Filter</button>
+        <button class="fyn-btn" onclick="generateAIReport()" style="background: var(--accent);">Generate PDF</button>
+      </div>
+    </div>
+
+    <!-- Data Table -->
+    <div class="fyn-panel" style="background: white; border: 1px solid rgba(0,0,0,0.05); padding: 0; overflow: hidden;">
+      <div style="padding: 20px 30px; border-bottom: 1px solid rgba(0,0,0,0.05);">
+        <h3 style="font-weight: 800;">Historical Time-Strap Records</h3>
+      </div>
+      <div style="overflow-x: auto;">
+        <table style="width: 100%; border-collapse: collapse;">
+          <thead>
+            <tr style="background: var(--bg);">
+              <th style="padding: 15px 30px; text-align: left; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">STUDENT</th>
+              <th style="padding: 15px; text-align: left; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">DATE</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P1</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P2</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P3</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P4</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P5</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P6</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P7</th>
+              <th style="padding: 15px; text-align: center; font-size: 0.8rem; letter-spacing: 1px; color: var(--text-dim);">P8</th>
+            </tr>
+          </thead>
+          <tbody id="table">
+            <!-- Data will stream here -->
+          </tbody>
+        </table>
+      </div>
+    </div>
+  </main>
+
+  <!-- AI Toggle -->
+  <div class="ai-toggle-btn" onclick="toggleFullScreenChat()">AI</div>
+
+  <!-- Full Screen Chat -->
+  <div id="full-screen-chat" class="full-screen-chat hidden">
+    <div class="chat-close" onclick="toggleFullScreenChat()">×</div>
+    <h2 style="font-size: 3rem; margin-bottom: 40px; color: var(--accent);">Intelligence Analysis</h2>
+    <div id="chat-messages" style="flex: 1; overflow-y: auto; margin-bottom: 40px;"></div>
+    <div style="display: flex; gap: 20px;">
+      <input type="text" id="chat-input" placeholder="Query classroom trends..." style="flex: 1; background: rgba(255,255,255,0.05); border: 1px solid var(--accent); border-radius: 20px; padding: 20px; color: white; font-size: 1.2rem;" onkeypress="if(event.key==='Enter') sendAdminChat()">
+      <button class="fyn-btn" onclick="sendAdminChat()" style="background: var(--accent); padding: 20px 40px;">Analyze</button>
+    </div>
+  </div>
+
+  <script src="script.js?v=8"></script>
+</body>
+</html>

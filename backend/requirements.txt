@@ -1,0 +1,10 @@
+flask
+flask-cors
+opencv-python
+face_recognition
+numpy
+groq
+fpdf2
+python-dotenv
+pymongo
+pandas
