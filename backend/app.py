@@ -9,6 +9,9 @@ import sqlite3
 import base64
 from dotenv import load_dotenv
 from ai_reporting import AttendanceAI
+import pymongo
+from bson.binary import Binary
+
 
 # Initialize OpenCV LBPH Recognizer
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
@@ -16,35 +19,61 @@ recognizer = cv2.face.LBPHFaceRecognizer_create()
 TRAINER_FILE = "data/trainer.yml"
 LABELS_FILE = "data/labels.pkl"
 
+load_dotenv()
+ai_handler = AttendanceAI()
+
+# MongoDB Configuration
+MONGO_URI = os.environ.get("MONGODB_URI", "mongodb://localhost:27017")
+client = pymongo.MongoClient(MONGO_URI)
+db = client["smart_attendance"]
+students_col = db["students"]
+attendance_col = db["attendance"]
+config_col = db["config"]
+
 def save_recognizer():
     os.makedirs("data", exist_ok=True)
     recognizer.save(TRAINER_FILE)
     with open(LABELS_FILE, "wb") as f:
         pickle.dump(label_map, f)
+    
+    # ROBUST: Sync to Cloud
+    with open(TRAINER_FILE, "rb") as f:
+        trainer_bin = Binary(f.read())
+    with open(LABELS_FILE, "rb") as f:
+        labels_bin = Binary(f.read())
+    
+    config_col.update_one(
+        {"type": "face_model"},
+        {"$set": {"trainer": trainer_bin, "labels": labels_bin, "updated_at": datetime.now()}},
+        upsert=True
+    )
+
+def load_recognizer():
+    global label_map
+    # Try loading from cloud first for ROBUSTNESS
+    model_data = config_col.find_one({"type": "face_model"})
+    if model_data:
+        os.makedirs("data", exist_ok=True)
+        with open(TRAINER_FILE, "wb") as f:
+            f.write(model_data["trainer"])
+        with open(LABELS_FILE, "wb") as f:
+            f.write(model_data["labels"])
+        print("✅ Face Intelligence Synced from Cloud")
+    
+    if os.path.exists(TRAINER_FILE) and os.path.exists(LABELS_FILE):
+        recognizer.read(TRAINER_FILE)
+        with open(LABELS_FILE, "rb") as f:
+            label_map = pickle.load(f)
 
 label_map = {} 
-if os.path.exists(TRAINER_FILE) and os.path.exists(LABELS_FILE):
-    recognizer.read(TRAINER_FILE)
-    with open(LABELS_FILE, "rb") as f:
-        label_map = pickle.load(f)
+load_recognizer()
 
-load_dotenv()
-ai_handler = AttendanceAI()
 
 app = Flask(__name__)
 CORS(app)
 
-DB_FILE = "attendance.db"
+# DB Init is handled automatically by MongoDB
 
-def init_db():
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("CREATE TABLE IF NOT EXISTS attendance (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT, date TEXT, time TEXT)")
-    c.execute("CREATE TABLE IF NOT EXISTS students (id INTEGER PRIMARY KEY AUTOINCREMENT, name TEXT UNIQUE, details TEXT)")
-    conn.commit()
-    conn.close()
-
-init_db()
 
 def base64_to_image(base64_str):
     try:
@@ -72,7 +101,19 @@ def register():
     if len(faces) > 1:
         return jsonify({"status": "error", "message": "Multiple faces detected! Only one person should be in the frame during registration."}), 400
 
+    # ROBUST: Check if this face is already in our system
+    (x, y, w, h) = faces[0]
+    if len(label_map) > 0:
+        try:
+            id_, conf = recognizer.predict(gray[y:y+h, x:x+w])
+            if conf < 60: # High precision check
+                existing_name = label_map.get(id_, "Unknown")
+                return jsonify({"status": "error", "message": f"This face is already registered as '{existing_name}'!"}), 400
+        except:
+            pass
+
     student_id = len(label_map) + 1
+
     label_map[student_id] = name
     face_samples, ids = [], []
     for (x, y, w, h) in faces:
@@ -81,12 +122,13 @@ def register():
         ids.extend([student_id, student_id])
     recognizer.update(face_samples, np.array(ids))
     save_recognizer()
-    conn = sqlite3.connect(DB_FILE)
-    c = conn.cursor()
-    c.execute("INSERT OR IGNORE INTO students (name, details) VALUES (?, ?)", (name, details))
-    conn.commit()
-    conn.close()
+    students_col.update_one(
+        {"name": name},
+        {"$set": {"details": details}},
+        upsert=True
+    )
     return jsonify({"status": "success"})
+
 
 @app.route("/attendance", methods=["POST"])
 def attendance():
@@ -109,85 +151,87 @@ def attendance():
                 pass
         
         if name != "Unknown":
-
             now = datetime.now()
             date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
-            conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-            c.execute("SELECT time FROM attendance WHERE name=? AND date=? ORDER BY time DESC LIMIT 1", (name, date))
-            row = c.fetchone()
-            if row:
-                diff = (now - datetime.strptime(f"{date} {row[0]}", "%Y-%m-%d %H:%M:%S")).total_seconds()
+            last_entry = attendance_col.find_one({"name": name, "date": date}, sort=[("time", -1)])
+            if last_entry:
+                diff = (now - datetime.strptime(f"{date} {last_entry['time']}", "%Y-%m-%d %H:%M:%S")).total_seconds()
                 if diff < 600: status, rem = "marked", int(600 - diff)
             if status == "unmarked":
-                c.execute("INSERT INTO attendance (name, date, time) VALUES (?, ?, ?)", (name, date, time))
-                conn.commit(); status, rem = "marked", 600
-            conn.close()
+                attendance_col.insert_one({"name": name, "date": date, "time": time})
+                status, rem = "marked", 600
         results.append({"name": name, "status": status, "seconds_remaining": rem, "box": [int(x), int(y), int(w), int(h)]})
     return jsonify({"status": "success", "recognized": results})
 
 @app.route("/report")
 def report():
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name, date, time FROM attendance ORDER BY date DESC, time DESC")
-    rows = c.fetchall(); conn.close()
-    return jsonify(rows)
+    rows = list(attendance_col.find({}, {"_id": 0}).sort([("date", -1), ("time", -1)]))
+    # Format for frontend: [name, date, time]
+    data = [[r["name"], r["date"], r["time"]] for r in rows]
+    return jsonify(data)
+
 
 @app.route("/report/months")
 def report_months():
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT DISTINCT substr(date, 1, 7) FROM attendance ORDER BY date DESC")
-    months = [r[0] for r in c.fetchall()]; conn.close()
+    months = attendance_col.distinct("date")
+    months = sorted(list(set([d[:7] for d in months])), reverse=True)
     return jsonify(months)
+
 
 @app.route("/report/month/<ym>")
 def report_month(ym):
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name, date, time FROM attendance WHERE substr(date,1,7)=? ORDER BY date DESC, time DESC", (ym,))
-    rows = c.fetchall(); conn.close()
-    return jsonify(rows)
+    rows = list(attendance_col.find({"date": {"$regex": f"^{ym}"}}, {"_id": 0}).sort([("date", -1), ("time", -1)]))
+    data = [[r["name"], r["date"], r["time"]] for r in rows]
+    return jsonify(data)
+
 
 @app.route("/students")
 def students_list():
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name, details FROM students ORDER BY name")
-    rows = c.fetchall(); conn.close()
-    return jsonify([{"name": r[0], "details": r[1]} for r in rows])
+    rows = list(students_col.find({}, {"_id": 0, "name": 1, "details": 1}).sort("name", 1))
+    return jsonify(rows)
+
 
 @app.route("/student/<name>")
 def student_profile(name):
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name, details FROM students WHERE lower(name)=lower(?)", (name,))
-    row = c.fetchone()
-    if not row: conn.close(); return jsonify({"status": "error"}), 404
-    res_name, details = row[0], row[1]
-    c.execute("SELECT DISTINCT date FROM attendance ORDER BY date")
-    dates = [r[0] for r in c.fetchall()]
-    c.execute("SELECT date, time FROM attendance WHERE name=? ORDER BY date DESC, time DESC", (res_name,))
-    recs = c.fetchall()
-    present_dates = set([r[0] for r in recs])
-    leave_dates = [d for d in dates if d not in present_dates]
-    conn.close()
-    pct = round((len(present_dates) / len(dates) * 100), 2) if dates else 0
-    return jsonify({"name": res_name, "details": details, "percentage": pct, "total": len(dates), "present": len(present_dates), "leave_dates": leave_dates, "records": [{"date": r[0], "time": r[1]} for r in recs]})
+    student = students_col.find_one({"name": {"$regex": f"^{name}$", "$options": "i"}}, {"_id": 0})
+    if not student: return jsonify({"status": "error"}), 404
+    
+    all_dates = sorted(attendance_col.distinct("date"))
+    recs = list(attendance_col.find({"name": student["name"]}, {"_id": 0}).sort([("date", -1), ("time", -1)]))
+    
+    present_dates = set([r["date"] for r in recs])
+    leave_dates = [d for d in all_dates if d not in present_dates]
+    
+    pct = round((len(present_dates) / len(all_dates) * 100), 2) if all_dates else 0
+    return jsonify({
+        "name": student["name"], 
+        "details": student["details"], 
+        "percentage": pct, 
+        "total": len(all_dates), 
+        "present": len(present_dates), 
+        "leave_dates": leave_dates, 
+        "records": recs
+    })
+
 
 @app.route("/ai/chat", methods=["POST"])
 def ai_chat():
     data = request.json
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name FROM students"); all_s = [r[0] for r in c.fetchall()]
-    c.execute("SELECT name, time FROM attendance WHERE date=?", (datetime.now().strftime("%Y-%m-%d"),))
-    recs = c.fetchall(); conn.close()
+    all_s = [s["name"] for s in students_col.find({}, {"name": 1})]
+    today = datetime.now().strftime("%Y-%m-%d")
+    recs = [(r["name"], r["time"]) for r in attendance_col.find({"date": today})]
     return jsonify({"status": "success", "response": ai_handler.chat_with_attendance(data.get("query"), recs, all_students=all_s)})
+
 
 @app.route("/ai/generate_report", methods=["POST"])
 def ai_generate_report():
-    conn = sqlite3.connect(DB_FILE); c = conn.cursor()
-    c.execute("SELECT name FROM students"); all_s = [r[0] for r in c.fetchall()]
-    c.execute("SELECT name, date, time FROM attendance WHERE date=?", (datetime.now().strftime("%Y-%m-%d"),))
-    recs = c.fetchall(); conn.close()
+    all_s = [s["name"] for s in students_col.find({}, {"name": 1})]
+    today = datetime.now().strftime("%Y-%m-%d")
+    recs = [(r["name"], r["date"], r["time"]) for r in attendance_col.find({"date": today})]
     summary = ai_handler.generate_ai_summary(recs, all_students=all_s)
     ai_handler.create_pdf_report(summary, recs)
     return jsonify({"status": "success", "summary": summary, "pdf_url": "/reports/latest"})
+
 
 @app.route("/reports/latest")
 def get_latest_report():

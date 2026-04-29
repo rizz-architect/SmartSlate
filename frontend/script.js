@@ -213,6 +213,21 @@ async function updateMonitorLists() {
       </div>
     `).join("") || '<div style="text-align: center; padding: 20px;">Everyone is present</div>';
 
+    // Update All Registered UI
+    const allContainer = document.getElementById("tab-all");
+    if (allContainer) {
+      allContainer.innerHTML = allStudents.map(s => `
+        <div class="fyn-item">
+          <div>
+            <div class="name">${s.name}</div>
+            <div class="time">${s.details || "In Database"}</div>
+          </div>
+          <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--accent);">STUDENT</span>
+        </div>
+      `).join("") || '<div style="text-align: center; padding: 20px;">No students registered yet</div>';
+    }
+
+
   } catch (err) {
     console.error("Monitor failed:", err);
     if (summaryElem) summaryElem.textContent = "AI Link Error: " + err.message;
@@ -542,9 +557,21 @@ async function loadReport(month) {
        const allRes = await fetch(`${API_BASE}/students`);
        const allS = await allRes.json();
        document.getElementById("stat-absent").textContent = allS.length - todayPresent.length;
+    const allContainer = document.getElementById("tab-all");
+    if (allContainer) {
+      allContainer.innerHTML = allStudents.map(s => `
+        <div class="fyn-item">
+          <div>
+            <div class="name">${s.name}</div>
+            <div class="time">${s.details || "Database Verified"}</div>
+          </div>
+          <span class="badge" style="background: rgba(255,255,255,0.05); color: var(--accent);">STUDENT</span>
+        </div>
+      `).join("") || '<div style="text-align: center; padding: 20px;">No students registered yet</div>';
     }
 
   } catch (err) {
+
     showMessage(err.message || err, true);
   }
 }

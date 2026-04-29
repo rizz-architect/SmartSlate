@@ -42,7 +42,14 @@
           <div class="tabs-header">
             <button class="tab-btn active" onclick="switchMonitorTab('present')">Verified Entry</button>
             <button class="tab-btn" onclick="switchMonitorTab('absent')">Missing List</button>
+            <button class="tab-btn" onclick="switchMonitorTab('all')">Registered</button>
           </div>
+          
+          <!-- Registered List -->
+          <div id="tab-all" class="fyn-list hidden">
+             <div style="text-align: center; padding: 40px; color: var(--text-dim);">Loading student database...</div>
+          </div>
+
           
           <!-- Present List -->
           <div id="tab-present" class="fyn-list">
@@ -90,8 +97,10 @@
       event.target.classList.add('active');
       document.getElementById('tab-present').classList.add('hidden');
       document.getElementById('tab-absent').classList.add('hidden');
+      document.getElementById('tab-all').classList.add('hidden');
       document.getElementById('tab-' + tab).classList.remove('hidden');
     }
+
     
     window.addEventListener('load', () => {
       setTimeout(() => { if(typeof toggleLiveFeed === 'function') toggleLiveFeed(); }, 1000);
