@@ -6,3 +6,5 @@ data/trainer.yml
 data/labels.pkl
 reports/
 data/encodings.pkl
+
+.vercel

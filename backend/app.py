@@ -31,7 +31,7 @@ if os.path.exists(TRAINER_FILE) and os.path.exists(LABELS_FILE):
 load_dotenv()
 ai_handler = AttendanceAI()
 
-app = Flask(__name__, static_folder="../frontend", static_url_path="")
+app = Flask(__name__)
 CORS(app)
 
 DB_FILE = "attendance.db"
@@ -92,10 +92,16 @@ def attendance():
     faces = face_cascade.detectMultiScale(gray, 1.2, 5)
     results = []
     for (x, y, w, h) in faces:
-        id_, conf = recognizer.predict(gray[y:y+h, x:x+w])
         name, status, rem = "Unknown", "unmarked", 0
-        if conf < 75:
-            name = label_map.get(id_, "Unknown")
+        if len(label_map) > 0:
+            try:
+                id_, conf = recognizer.predict(gray[y:y+h, x:x+w])
+                if conf < 75:
+                    name = label_map.get(id_, "Unknown")
+            except Exception:
+                pass
+        
+        if name != "Unknown":
             now = datetime.now()
             date, time = now.strftime("%Y-%m-%d"), now.strftime("%H:%M:%S")
             conn = sqlite3.connect(DB_FILE); c = conn.cursor()
@@ -187,10 +193,9 @@ def get_latest_report():
 
 
 @app.route("/")
-def index(): return send_from_directory("../frontend", "index.html")
+def index():
+    return jsonify({"status": "Backend is running!"})
 
-@app.route("/<path:path>")
-def serve_static(path): return send_from_directory("../frontend", path)
 
 if __name__ == "__main__":
     app.run(debug=True)
