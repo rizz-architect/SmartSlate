@@ -43,7 +43,19 @@
             <button class="tab-btn active" onclick="switchMonitorTab('present')">Verified Entry</button>
             <button class="tab-btn" onclick="switchMonitorTab('absent')">Missing List</button>
             <button class="tab-btn" onclick="switchMonitorTab('all')">Registered</button>
+            <button class="tab-btn" onclick="switchMonitorTab('debug')" style="color: #ffb400;">System Health</button>
           </div>
+          
+          <!-- Debug Hub -->
+          <div id="tab-debug" class="fyn-list hidden" style="padding: 20px; font-family: monospace; font-size: 0.8rem; background: #1a1a1a; color: #00ff00; border-radius: 15px;">
+             <div style="margin-bottom: 10px;">[ SYSTEM DIAGNOSTICS ]</div>
+             <div id="debug-camera">Camera: Initializing...</div>
+             <div id="debug-api">API Base: Checking...</div>
+             <div id="debug-browser">Browser: Checking...</div>
+             <div id="debug-error" style="color: #ff4d4d; margin-top: 10px; border-top: 1px solid #333; padding-top: 10px;">Last Error: None</div>
+             <button onclick="location.reload()" style="margin-top: 20px; background: #333; color: white; border: none; padding: 10px; cursor: pointer; border-radius: 5px;">Reboot System</button>
+          </div>
+
           
           <!-- Registered List -->
           <div id="tab-all" class="fyn-list hidden">
@@ -98,8 +110,10 @@
       document.getElementById('tab-present').classList.add('hidden');
       document.getElementById('tab-absent').classList.add('hidden');
       document.getElementById('tab-all').classList.add('hidden');
+      document.getElementById('tab-debug').classList.add('hidden');
       document.getElementById('tab-' + tab).classList.remove('hidden');
     }
+
 
     
     window.addEventListener('load', () => {

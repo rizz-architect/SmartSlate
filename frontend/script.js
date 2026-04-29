@@ -33,8 +33,9 @@ function setScanState(active) {
 }
 
 async function startCamera() {
-  if (!video) video = document.getElementById("video");
+  if (!video) video = document.getElementById("live-video") || document.getElementById("video");
   if (!video || !navigator.mediaDevices?.getUserMedia) return;
+
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
     video.srcObject = stream;
@@ -48,10 +49,11 @@ async function startCamera() {
 
 
 function captureImage() {
-  if (!video) video = document.getElementById("video");
-  if (!canvas) canvas = document.getElementById("canvas");
+  if (!video) video = document.getElementById("live-video") || document.getElementById("video");
+  if (!canvas) canvas = document.getElementById("live-overlay") || document.getElementById("canvas");
   
   if (!video || !canvas) throw new Error("Camera or Canvas element not found in DOM");
+
   if (!video.srcObject) throw new Error("Camera stream not started yet. Please wait or allow camera.");
   
   canvas.width = video.videoWidth || 640;
@@ -653,10 +655,12 @@ function initPage() {
   }, 3000);
 
   startCamera();
+  updateDebugHub();
   init3DBackground();
+  
   if (window.VanillaTilt) VanillaTilt.init(document.querySelectorAll("[data-tilt]"));
 
-  const page = document.body.dataset.page;
+  const page = document.body?.dataset?.page;
   if (page === "index") {
     updateMonitorLists();
     setInterval(updateMonitorLists, 3000); // Auto-refresh every 3 seconds
@@ -667,7 +671,20 @@ function initPage() {
   }
 }
 
+function updateDebugHub(error = null) {
+  const camEl = document.getElementById("debug-camera");
+  const apiEl = document.getElementById("debug-api");
+  const browserEl = document.getElementById("debug-browser");
+  const errorEl = document.getElementById("debug-error");
+  
+  if (camEl) camEl.textContent = `Camera API: ${navigator.mediaDevices?.getUserMedia ? "AVAILABLE" : "MISSING"}`;
+  if (apiEl) apiEl.textContent = `API Base: ${API_BASE}`;
+  if (browserEl) browserEl.textContent = `Context: ${window.isSecureContext ? "Secure (HTTPS/Local)" : "UNSECURE (Camera Blocked)"}`;
+  if (error && errorEl) errorEl.textContent = `Last Error: ${error}`;
+}
+
 async function sendAdminChat() {
+
   const input = document.getElementById("chat-input");
   const query = input.value.trim();
   if (!query) return;
@@ -777,12 +794,16 @@ async function toggleLiveFeed() {
   }
   
   try {
-    await fetch(`${API_BASE}/start_attendance`, { method: "POST" });
+    // Sync with cloud intelligence
+    try { await fetch(`${API_BASE}/report`); } catch(e) {}
+
     liveStream = await navigator.mediaDevices.getUserMedia({ video: true });
     video.srcObject = liveStream;
     btn.textContent = "Stop Live Tracking";
     status.textContent = "LIVE";
     status.className = status.classList.contains("status-badge") ? "status-badge live" : "badge safe";
+    updateDebugHub();
+
     
     video.onloadedmetadata = () => {
       overlay.width = video.videoWidth;
@@ -858,9 +879,11 @@ async function toggleLiveFeed() {
     }, 1500); 
     
   } catch (err) {
+    updateDebugHub(err.message);
     alert("Camera Error: " + err.message);
   }
 }
+
 
 window.startAttendance = startAttendance;
 window.stopAttendance = stopAttendance;
