@@ -177,9 +177,14 @@ def ai_generate_report():
 
 @app.route("/reports/latest")
 def get_latest_report():
+    if not os.path.exists("reports"):
+        return jsonify({"status": "error", "message": "No reports generated yet"}), 404
     files = [f for f in os.listdir("reports") if f.endswith(".pdf")]
+    if not files:
+        return jsonify({"status": "error", "message": "No reports found"}), 404
     latest = max([os.path.join("reports", f) for f in files], key=os.path.getctime)
     return send_from_directory("reports", os.path.basename(latest))
+
 
 @app.route("/")
 def index(): return send_from_directory("../frontend", "index.html")
