@@ -1,4 +1,4 @@
-from flask import Flask, request, jsonify, send_from_directory
+from flask import Flask, request, jsonify, send_file
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -16,8 +16,9 @@ from bson.binary import Binary
 # Initialize OpenCV LBPH Recognizer
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
 recognizer = cv2.face.LBPHFaceRecognizer_create()
-TRAINER_FILE = "data/trainer.yml"
-LABELS_FILE = "data/labels.pkl"
+TRAINER_FILE = "/tmp/trainer.yml"
+LABELS_FILE = "/tmp/labels.pkl"
+
 
 load_dotenv()
 ai_handler = AttendanceAI()
@@ -31,7 +32,7 @@ attendance_col = db["attendance"]
 config_col = db["config"]
 
 def save_recognizer():
-    os.makedirs("data", exist_ok=True)
+    # No need to create directory as /tmp exists
     recognizer.save(TRAINER_FILE)
     with open(LABELS_FILE, "wb") as f:
         pickle.dump(label_map, f)
@@ -53,7 +54,7 @@ def load_recognizer():
     # Try loading from cloud first for ROBUSTNESS
     model_data = config_col.find_one({"type": "face_model"})
     if model_data:
-        os.makedirs("data", exist_ok=True)
+        # No need to create directory as /tmp exists
         with open(TRAINER_FILE, "wb") as f:
             f.write(model_data["trainer"])
         with open(LABELS_FILE, "wb") as f:
@@ -235,13 +236,13 @@ def ai_generate_report():
 
 @app.route("/reports/latest")
 def get_latest_report():
-    if not os.path.exists("reports"):
+    if not os.path.exists("/tmp"):
         return jsonify({"status": "error", "message": "No reports generated yet"}), 404
-    files = [f for f in os.listdir("reports") if f.endswith(".pdf")]
+    files = [f for f in os.listdir("/tmp") if f.startswith("report_") and f.endswith(".pdf")]
     if not files:
         return jsonify({"status": "error", "message": "No reports found"}), 404
-    latest = max([os.path.join("reports", f) for f in files], key=os.path.getctime)
-    return send_from_directory("reports", os.path.basename(latest))
+    latest = max([os.path.join("/tmp", f) for f in files], key=os.path.getctime)
+    return send_file(latest, as_attachment=True)
 
 
 @app.route("/")
