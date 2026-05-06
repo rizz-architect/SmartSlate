@@ -1,7 +1,6 @@
 flask
 flask-cors
 opencv-contrib-python
-face_recognition
 numpy
 groq
 fpdf2
