@@ -17,6 +17,7 @@ load_dotenv()
 
 # ─── Face Recognition Setup ──────────────────────────────────────────────────
 face_cascade = cv2.CascadeClassifier(cv2.data.haarcascades + 'haarcascade_frontalface_default.xml')
+cascade_lock = threading.Lock()
 recognizer   = cv2.face.LBPHFaceRecognizer_create()
 BASE_DIR     = os.path.dirname(os.path.abspath(__file__))
 TRAINER_FILE = os.path.join(BASE_DIR, "trainer.yml")
@@ -177,7 +178,9 @@ def register():
             return jsonify({"status": "error", "message": "Could not decode image."}), 400
 
         gray  = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        faces = face_cascade.detectMultiScale(gray, 1.1, 6)
+        
+        with cascade_lock:
+            faces = face_cascade.detectMultiScale(gray, 1.1, 6)
 
         if len(faces) == 0:
             return jsonify({"status": "error", "message": "No face detected. Face the camera directly."}), 400
@@ -392,7 +395,8 @@ class VideoCamera:
                 if frame_skip % 3 == 0:
                     small = cv2.resize(frame, (0, 0), fx=0.5, fy=0.5)
                     gray_small = cv2.cvtColor(small, cv2.COLOR_BGR2GRAY)
-                    self.last_faces = face_cascade.detectMultiScale(gray_small, 1.2, 5)
+                    with cascade_lock:
+                        self.last_faces = face_cascade.detectMultiScale(gray_small, 1.2, 5)
 
                 faces     = getattr(self, 'last_faces', [])
                 gray_full = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
