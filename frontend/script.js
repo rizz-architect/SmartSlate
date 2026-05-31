@@ -103,6 +103,52 @@ function renderDashboard(allRecords, allStudents, presentNames) {
   }
 }
 
+async function registerStudent() {
+  const nameInput = document.getElementById('reg-name');
+  const detailsInput = document.getElementById('reg-details');
+  const messageEl = document.getElementById('reg-message');
+  if (!nameInput || !messageEl) return;
+
+  const name = nameInput.value.trim();
+  const details = detailsInput ? detailsInput.value.trim() : '';
+  if (!name) {
+    messageEl.textContent = 'Please enter a name before registering.';
+    return;
+  }
+
+  messageEl.textContent = 'Capturing your face...';
+  try {
+    const frameRes = await fetch(`${API_BASE}/capture_frame`);
+    if (!frameRes.ok) {
+      throw new Error('Could not capture the current camera frame. Make sure the video feed is visible.');
+    }
+
+    const blob = await frameRes.blob();
+    const reader = new FileReader();
+    reader.onloadend = async () => {
+      const imageBase64 = reader.result;
+      const res = await fetch(`${API_BASE}/register`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name, image: imageBase64, details })
+      });
+
+      const data = await res.json();
+      if (!res.ok) {
+        messageEl.textContent = data.message || 'Registration failed. Please try again.';
+        return;
+      }
+
+      messageEl.textContent = 'Face registered successfully! You can now use the attendance scanner.';
+      nameInput.value = '';
+      if (detailsInput) detailsInput.value = '';
+    };
+    reader.readAsDataURL(blob);
+  } catch (err) {
+    messageEl.textContent = err.message || 'Registration error. Check the backend logs and camera.';
+  }
+}
+
 // AI Chat Logic
 function toggleChat() {
   const overlay = document.getElementById('chat-overlay');

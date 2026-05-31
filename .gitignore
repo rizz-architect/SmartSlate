@@ -10,19 +10,26 @@ __pycache__/
 local.properties
 *.apk
 
-# Model data
+# Model data (large binary files)
 *.yml
 *.pkl
 backend/trainer.yml
 backend/labels.pkl
+trainer.yml
+labels.pkl
+
+# Generated reports
+backend/reports/
 
 # System / Logs
 dlib_install_log.txt
 *.log
 test_out.txt
+*.db
 
-# Tools
+# Tools / large zips
 adb/
 android_sdk/
 cmdline-tools.zip
 platform-tools.zip
+codebuff_repo/
