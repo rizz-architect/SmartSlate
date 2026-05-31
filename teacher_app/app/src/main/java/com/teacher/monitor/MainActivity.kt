@@ -168,7 +168,11 @@ fun ConnectionScreen() {
                 errorMessage = ""
                 scope.launch(Dispatchers.IO) {
                     try {
-                        val url = URL("http://$ipInput:8080/api/realtime/dashboard")
+                        val cleanIp = ipInput.trim()
+                            .replace("http://", "")
+                            .replace("https://", "")
+                            .removeSuffix("/")
+                        val url = URL("http://$cleanIp:8080/api/realtime/dashboard")
                         val connection = url.openConnection() as HttpURLConnection
                         connection.connectTimeout = 3000
                         if (connection.responseCode == 200) {
