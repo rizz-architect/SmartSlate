@@ -1,4 +1,4 @@
-﻿from flask import Flask, request, jsonify, send_file, Response, send_from_directory
+from flask import Flask, request, jsonify, send_file, Response, send_from_directory
 from flask_cors import CORS
 import cv2
 import numpy as np
@@ -181,8 +181,11 @@ def register():
 
         if len(faces) == 0:
             return jsonify({"status": "error", "message": "No face detected. Face the camera directly."}), 400
+        
+        # If multiple faces (or false positives) are detected, pick the largest one (the person closest to camera)
         if len(faces) > 1:
-            return jsonify({"status": "error", "message": "Multiple faces detected. Only one person per frame."}), 400
+            faces = sorted(faces, key=lambda f: f[2] * f[3], reverse=True)
+            print(f"[WARN] Multiple faces detected during registration. Auto-selecting the largest face.", flush=True)
 
         (x, y, w, h) = faces[0]
 
