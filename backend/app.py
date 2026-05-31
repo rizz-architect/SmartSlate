@@ -196,7 +196,7 @@ def register():
         if len(label_map) > 0:
             try:
                 id_, conf = recognizer.predict(gray[y:y+h, x:x+w])
-                if conf < 60:
+                if conf < 85:
                     existing = label_map.get(id_, "Unknown")
                     return jsonify({"status": "error", "message": f"Face already registered as '{existing}'."}), 400
             except Exception:
