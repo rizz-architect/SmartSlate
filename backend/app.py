@@ -196,7 +196,7 @@ def register():
         if len(label_map) > 0:
             try:
                 id_, conf = recognizer.predict(gray[y:y+h, x:x+w])
-                if conf < 85:
+                if conf < 80:
                     existing = label_map.get(id_, "Unknown")
                     return jsonify({"status": "error", "message": f"Face already registered as '{existing}'."}), 400
             except Exception:
@@ -409,7 +409,7 @@ class VideoCamera:
                     if len(label_map) > 0:
                         try:
                             id_, conf = recognizer.predict(gray_full[y:y+h, x:x+w])
-                            if conf < 85:
+                            if conf < 80:
                                 name  = label_map.get(id_, "Unknown")
                                 color = (0, 200, 80)  # green = recognised
 
