@@ -62,7 +62,17 @@ function renderMonitor(todayRecords) {
     return;
   }
 
-  list.innerHTML = todayRecords.map((r, i) => `
+  // Filter to show only the most recent scan per unique person
+  const uniqueRecords = [];
+  const seen = new Set();
+  for (const r of todayRecords) {
+    if (!seen.has(r[0])) {
+      seen.add(r[0]);
+      uniqueRecords.push(r);
+    }
+  }
+
+  list.innerHTML = uniqueRecords.map((r, i) => `
     <div class="reveal" style="animation-delay: ${i * 50}ms; margin-bottom: 0.5rem;">
       <div style="background: var(--surface); padding: 1rem; border: 1px solid var(--border); border-radius: var(--radius-md); display: flex; justify-content: space-between; align-items: center;">
         <div>
