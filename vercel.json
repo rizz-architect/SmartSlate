@@ -2,5 +2,6 @@
   "cleanUrls": true,
   "rewrites": [
     { "source": "/(.*)", "destination": "/frontend/$1" }
-  ]
+  ],
+  "ignoreCommand": "git diff --quiet HEAD^ HEAD -- . ':!TODO.md' ':!BUGS.md' ':!testing-notes.txt' ':!future-updates.md' ':!dev-notes.md' ':!.github/workflows/**'"
 }
