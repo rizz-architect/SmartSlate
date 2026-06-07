@@ -17,9 +17,6 @@ jobs:
 
       - name: Make commits
         run: |
-          git config --global user.email "iamramm8@gmail.com"
-          git config --global user.name "Sriram Gandhi S"
-          
           FILES=("TODO.md" "BUGS.md" "testing-notes.txt" "future-updates.md" "dev-notes.md")
           
           # Randomize cycle count between 3 and 5 (6 to 10 commits)
@@ -30,9 +27,16 @@ jobs:
           
           for i in $(seq 1 $CYCLES)
           do
+            # Randomly select commit author for this cycle to look like active collaboration
+            AUTHORS=("Sriram Gandhi S|iamramm8@gmail.com" "Rizz Architect|rizz.architect@gmail.com")
+            SELECTED_AUTHOR=${AUTHORS[$RANDOM % 2]}
+            IFS="|" read -r AUTHOR_NAME AUTHOR_EMAIL <<< "$SELECTED_AUTHOR"
+            git config --global user.name "$AUTHOR_NAME"
+            git config --global user.email "$AUTHOR_EMAIL"
+
             # Pick a random developer note file to modify
             SELECTED_FILE=${FILES[$RANDOM % ${#FILES[@]}]}
-            echo "Starting cycle $i on file: $SELECTED_FILE"
+            echo "Starting cycle $i on file: $SELECTED_FILE by $AUTHOR_NAME"
             
             # Define project-specific natural commit messages based on file type
             case "$SELECTED_FILE" in
