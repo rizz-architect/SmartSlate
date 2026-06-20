@@ -4,4 +4,3 @@
 - [ ] Optimize database index performance
 - [ ] Conduct local device responsive tests
  
- 
