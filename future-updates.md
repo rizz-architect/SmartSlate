@@ -3,3 +3,4 @@
 - [ ] Implement export to PDF feature for student reports
 - [ ] Research WebSockets for real-time notification panel
 - [ ] Support multi-language translation localization
+ 
